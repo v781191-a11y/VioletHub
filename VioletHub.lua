@@ -1,318 +1,264 @@
--- Violet Hub V9 | client-side UI and visual QA toolkit
--- Run in a Roblox client context. No executor-specific APIs required.
+-- Violet Hub v10 | Client-side QA and visual tools
+-- No combat exploitation, reward automation, or remote-event abuse.
 local Players = game:GetService('Players')
 local UIS = game:GetService('UserInputService')
-local TweenService = game:GetService('TweenService')
-local RunService = game:GetService('RunService')
+local Tween = game:GetService('TweenService')
 local Lighting = game:GetService('Lighting')
-local player = Players.LocalPlayer
-if not player then warn('Violet Hub: LocalPlayer unavailable'); return end
-local pg = player:WaitForChild('PlayerGui', 10)
+local RunService = game:GetService('RunService')
+local Workspace = game:GetService('Workspace')
+local LP = Players.LocalPlayer
+if not LP then warn('Violet Hub: LocalPlayer unavailable'); return end
+local pg = LP:WaitForChild('PlayerGui',10)
 if not pg then warn('Violet Hub: PlayerGui unavailable'); return end
-local old = pg:FindFirstChild('VioletHubV9')
+local old=pg:FindFirstChild('VioletHubV10')
 if old then old:Destroy() end
-local gui = Instance.new('ScreenGui')
-gui.Name='VioletHubV9'; gui.ResetOnSpawn=false; gui.IgnoreGuiInset=true; gui.DisplayOrder=999
-pcall(function() gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling end)
-gui.Parent=pg
-local C={bg=Color3.fromRGB(12,10,23),panel=Color3.fromRGB(22,18,38),panel2=Color3.fromRGB(31,25,51),purple=Color3.fromRGB(153,91,255),light=Color3.fromRGB(220,205,255),muted=Color3.fromRGB(157,148,177),white=Color3.fromRGB(245,240,255),green=Color3.fromRGB(100,229,169)}
-local function new(class,props,parent)
- local o=Instance.new(class)
+local C={bg=Color3.fromRGB(10,9,16),panel=Color3.fromRGB(23,21,30),field=Color3.fromRGB(33,30,43),accent=Color3.fromRGB(215,29,112),text=Color3.fromRGB(245,241,250),muted=Color3.fromRGB(166,160,176)}
+local gui=Instance.new('ScreenGui'); gui.Name='VioletHubV10'; gui.ResetOnSpawn=false; gui.IgnoreGuiInset=true; gui.DisplayOrder=900; gui.Parent=pg
+local state={esp=false,names=false,gun=false,coins=false,crosshair=false,fps=false,watermark=false,darken=false,blur=false,bloom=false,rays=false,cc=false,ambient=false,fullbright=false,rolecolors=false,menu=true,autoSave=false}
+local conns,highlights,markers={}, {}, {}
+local original={brightness=Lighting.Brightness,ambient=Lighting.Ambient,outdoor=Lighting.OutdoorAmbient,clock=Lighting.ClockTime,fov=70}
+local function obj(typ,props,parent)
+ local o=Instance.new(typ)
  for k,v in pairs(props or {}) do o[k]=v end
- o.Parent=parent; return o
+ o.Parent=parent
+ return o
 end
-local function round(o,r) new('UICorner',{CornerRadius=UDim.new(0,r or 10)},o) end
-local function stroke(o,color,trans) new('UIStroke',{Color=color or C.purple,Thickness=1,Transparency=trans or .65},o) end
-local function label(parent,text,size,color,bold)
- return new('TextLabel',{BackgroundTransparency=1,Text=text,TextColor3=color or C.white,TextSize=size or 13,Font=bold and Enum.Font.GothamBold or Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left},parent)
+local function corner(p,r) obj('UICorner',{CornerRadius=UDim.new(0,r or 8)},p) end
+local function label(p,t,h,bold,color)
+ return obj('TextLabel',{Size=UDim2.new(1,0,0,h or 25),BackgroundTransparency=1,Text=t,TextColor3=color or C.text,Font=bold and Enum.Font.GothamBold or Enum.Font.Gotham,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,TextWrapped=true},p)
 end
-local root=new('Frame',{Name='Window',Size=UDim2.fromOffset(720,485),Position=UDim2.new(.5,-360,.5,-242),BackgroundColor3=C.bg,BorderSizePixel=0,ClipsDescendants=true},gui)
-round(root,15); stroke(root,C.purple,.4)
-local scale=new('UIScale',{Scale=1},root)
-local function rescale()
- local cam=workspace.CurrentCamera
- if cam then local v=cam.ViewportSize; scale.Scale=math.clamp(math.min(v.X/780,v.Y/550),.58,1) end
+local function button(p,t,fn,h)
+ local b=obj('TextButton',{Size=UDim2.new(1,0,0,h or 32),BackgroundColor3=C.field,Text=t,TextColor3=C.text,Font=Enum.Font.GothamBold,TextSize=13,AutoButtonColor=true},p);corner(b,7)
+ b.MouseButton1Click:Connect(function() local ok,e=pcall(fn);if not ok then warn('Violet Hub action:',e) end end)
+ return b
 end
-rescale()
-if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal('ViewportSize'):Connect(rescale) end
-local header=new('Frame',{Size=UDim2.new(1,0,0,53),BackgroundColor3=C.panel,BorderSizePixel=0},root)
-local title=label(header,'✦  VIOLET HUB',18,C.light,true); title.Position=UDim2.fromOffset(18,8); title.Size=UDim2.fromOffset(230,25)
-local subtitle=label(header,'v9  •  CLIENT TOOLKIT',10,C.muted); subtitle.Position=UDim2.fromOffset(20,31); subtitle.Size=UDim2.fromOffset(200,15)
-local function topBtn(text,x)
- local b=new('TextButton',{Size=UDim2.fromOffset(34,30),Position=UDim2.new(1,x,0,11),BackgroundColor3=C.panel2,Text=text,TextSize=19,TextColor3=C.white,Font=Enum.Font.GothamBold,AutoButtonColor=true},header)
- round(b,8); return b
+local function stack(p,gap)
+ return obj('UIListLayout',{Padding=UDim.new(0,gap or 7),SortOrder=Enum.SortOrder.LayoutOrder},p)
 end
-local mini=topBtn('–',-84); local close=topBtn('×',-43)
-local sidebar=new('ScrollingFrame',{Position=UDim2.fromOffset(0,54),Size=UDim2.new(0,168,1,-54),BackgroundColor3=C.panel,BorderSizePixel=0,ScrollBarThickness=2,CanvasSize=UDim2.new()},root)
-new('UIPadding',{PaddingTop=UDim.new(0,12),PaddingLeft=UDim.new(0,9),PaddingRight=UDim.new(0,9)},sidebar)
-local navLayout=new('UIListLayout',{Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder},sidebar)
-navLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function() sidebar.CanvasSize=UDim2.fromOffset(0,navLayout.AbsoluteContentSize.Y+20) end)
-local content=new('Frame',{Position=UDim2.fromOffset(169,54),Size=UDim2.new(1,-169,1,-54),BackgroundTransparency=1},root)
-local heading=label(content,'Dashboard',21,C.white,true); heading.Position=UDim2.fromOffset(20,14); heading.Size=UDim2.new(1,-35,0,28)
-local desc=label(content,'Your client controls and status',12,C.muted); desc.Position=UDim2.fromOffset(21,43); desc.Size=UDim2.new(1,-40,0,18)
-local scroll=new('ScrollingFrame',{Position=UDim2.fromOffset(16,73),Size=UDim2.new(1,-32,1,-87),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=4,ScrollBarImageColor3=C.purple,CanvasSize=UDim2.new()},content)
-new('UIPadding',{PaddingTop=UDim.new(0,2),PaddingBottom=UDim.new(0,12),PaddingLeft=UDim.new(0,4),PaddingRight=UDim.new(0,8)},scroll)
-local stack=new('UIListLayout',{Padding=UDim.new(0,9),SortOrder=Enum.SortOrder.LayoutOrder},scroll)
-stack:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function() scroll.CanvasSize=UDim2.fromOffset(0,stack.AbsoluteContentSize.Y+20) end)
-local toast=label(gui,'',13,C.white,true); toast.Size=UDim2.fromOffset(340,38); toast.Position=UDim2.new(.5,-170,1,-60); toast.BackgroundColor3=C.panel2; toast.BackgroundTransparency=1; toast.TextTransparency=1; toast.TextXAlignment=Enum.TextXAlignment.Center; round(toast,9)
-local function notify(t)
- toast.Text=t; TweenService:Create(toast,TweenInfo.new(.2),{TextTransparency=0,BackgroundTransparency=.05}):Play()
- task.delay(2.5,function() if toast.Parent then TweenService:Create(toast,TweenInfo.new(.3),{TextTransparency=1,BackgroundTransparency=1}):Play() end end)
+local function pad(p,n) obj('UIPadding',{PaddingLeft=UDim.new(0,n),PaddingRight=UDim.new(0,n),PaddingTop=UDim.new(0,n),PaddingBottom=UDim.new(0,n)},p) end
+local main=obj('Frame',{Size=UDim2.fromOffset(900,580),Position=UDim2.new(.5,-450,.5,-290),BackgroundColor3=C.bg,BorderSizePixel=0,ClipsDescendants=true},gui);corner(main,13)
+local stroke=obj('UIStroke',{Color=C.accent,Thickness=1,Transparency=.35},main)
+local scale=obj('UIScale',{Scale=1},main)
+local bar=obj('Frame',{Size=UDim2.new(1,0,0,52),BackgroundColor3=C.panel,BorderSizePixel=0},main)
+label(bar,'  ◆  VIOLET HUB   /   CLIENT QA',50,true)
+local close=obj('TextButton',{Size=UDim2.fromOffset(35,30),Position=UDim2.new(1,-42,0,11),Text='×',TextSize=24,Font=Enum.Font.GothamBold,TextColor3=C.text,BackgroundColor3=C.field},bar);corner(close)
+local mini=obj('TextButton',{Size=UDim2.fromOffset(35,30),Position=UDim2.new(1,-82,0,11),Text='–',TextSize=24,Font=Enum.Font.GothamBold,TextColor3=C.text,BackgroundColor3=C.field},bar);corner(mini)
+local floating=obj('TextButton',{Size=UDim2.fromOffset(55,55),Position=UDim2.new(0,20,.5,-27),Text='◆',TextSize=27,TextColor3=C.text,BackgroundColor3=C.accent,Visible=false},gui);corner(floating,15)
+local sidebar=obj('ScrollingFrame',{Size=UDim2.new(0,172,1,-52),Position=UDim2.fromOffset(0,52),BackgroundColor3=C.panel,BorderSizePixel=0,ScrollBarThickness=2,CanvasSize=UDim2.new()},main);pad(sidebar,9);stack(sidebar,6)
+local area=obj('Frame',{Size=UDim2.new(1,-172,1,-52),Position=UDim2.fromOffset(172,52),BackgroundTransparency=1},main)
+local heading=obj('TextLabel',{Size=UDim2.new(1,-30,0,42),Position=UDim2.fromOffset(16,0),Text='HOME',TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,TextColor3=C.text,Font=Enum.Font.GothamBold,TextSize=21},area)
+local search=obj('TextBox',{Size=UDim2.new(1,-32,0,35),Position=UDim2.fromOffset(16,42),Text='',PlaceholderText='Search settings in this tab...',ClearTextOnFocus=false,BackgroundColor3=C.field,TextColor3=C.text,PlaceholderColor3=C.muted,Font=Enum.Font.Gotham,TextSize=13},area);corner(search)
+local pages=obj('ScrollingFrame',{Size=UDim2.new(1,-32,1,-96),Position=UDim2.fromOffset(16,87),BackgroundTransparency=1,ScrollBarThickness=4,ScrollBarImageColor3=C.accent,CanvasSize=UDim2.new()},area)
+local layout=obj('UIListLayout',{Padding=UDim.new(0,10),SortOrder=Enum.SortOrder.LayoutOrder},pages)
+layout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()pages.CanvasSize=UDim2.fromOffset(0,layout.AbsoluteContentSize.Y+20)end)
+local function clearPage() for _,v in ipairs(pages:GetChildren()) do if v:IsA('GuiObject') then v:Destroy() end end end
+local function section(name)
+ local outer=obj('Frame',{Size=UDim2.new(1,-7,0,40),BackgroundColor3=C.panel,AutomaticSize=Enum.AutomaticSize.Y},pages);corner(outer,9)
+ local holder=obj('Frame',{Size=UDim2.new(1,-24,0,0),Position=UDim2.fromOffset(12,43),BackgroundTransparency=1,AutomaticSize=Enum.AutomaticSize.Y},outer)
+ local sl=stack(holder,7)
+ local header=obj('TextButton',{Size=UDim2.new(1,-24,0,35),Position=UDim2.fromOffset(12,4),BackgroundTransparency=1,Text=name..'   ▾',TextColor3=C.text,TextXAlignment=Enum.TextXAlignment.Left,Font=Enum.Font.GothamBold,TextSize=14},outer)
+ local open=true
+ local function resize()outer.Size=UDim2.new(1,-7,0,open and (sl.AbsoluteContentSize.Y+55) or 43)end
+ sl:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(resize)
+ header.MouseButton1Click:Connect(function()open=not open;holder.Visible=open;header.Text=name..(open and '   ▾' or '   ▸');resize()end)
+ task.defer(resize)
+ return holder
 end
-local function clear()
- for _,v in ipairs(scroll:GetChildren()) do if v:IsA('GuiObject') then v:Destroy() end end
- scroll.CanvasPosition=Vector2.new(0,0)
+local function info(p,text)label(p,text,37,false,C.muted)end
+local function toggle(p,text,key,callback)
+ local row=obj('Frame',{Size=UDim2.new(1,0,0,34),BackgroundTransparency=1},p)
+ local t=label(row,text,34,false)
+ t.Size=UDim2.new(1,-85,1,0)
+ local b=obj('TextButton',{Size=UDim2.fromOffset(66,28),Position=UDim2.new(1,-66,0,3),BackgroundColor3=C.field,Text='',AutoButtonColor=false},row);corner(b,14)
+ local dot=obj('Frame',{Size=UDim2.fromOffset(22,22),Position=UDim2.fromOffset(4,3),BackgroundColor3=C.muted},b);corner(dot,11)
+ local function render()local on=state[key];b.BackgroundColor3=on and C.accent or C.field;Tween:Create(dot,TweenInfo.new(.13),{Position=UDim2.fromOffset(on and 40 or 4,3)}):Play()end
+ b.MouseButton1Click:Connect(function()state[key]=not state[key];render();if callback then local ok,e=pcall(callback,state[key]);if not ok then warn(e) end end end)
+ render();return row
 end
-local function section(t)
- local l=label(scroll,string.upper(t),11,C.purple,true); l.Size=UDim2.new(1,-8,0,22); return l
-end
-local function card(height)
- local f=new('Frame',{Size=UDim2.new(1,-8,0,height or 60),BackgroundColor3=C.panel,BorderSizePixel=0},scroll); round(f,10); stroke(f,C.purple,.87); return f
-end
-local function textrow(name,detail,value)
- local f=card(63); local a=label(f,name,13,C.white,true); a.Position=UDim2.fromOffset(14,9); a.Size=UDim2.new(1,-140,0,20)
- local b=label(f,detail,11,C.muted); b.Position=UDim2.fromOffset(14,31); b.Size=UDim2.new(1,-24,0,22)
- if value then local v=label(f,tostring(value),12,C.light,true); v.TextXAlignment=Enum.TextXAlignment.Right; v.Position=UDim2.new(1,-138,0,10); v.Size=UDim2.fromOffset(122,22) end
- return f
-end
-local state={}; local cleaners={}
-local function toggle(name,detail,default,callback)
- local f=card(65); local a=label(f,name,13,C.white,true); a.Position=UDim2.fromOffset(14,9); a.Size=UDim2.new(1,-100,0,20)
- local b=label(f,detail,11,C.muted); b.Position=UDim2.fromOffset(14,32); b.Size=UDim2.new(1,-100,0,24)
- local sw=new('TextButton',{Position=UDim2.new(1,-68,.5,-14),Size=UDim2.fromOffset(52,28),Text='',BackgroundColor3=C.panel2},f); round(sw,14)
- local dot=new('Frame',{Size=UDim2.fromOffset(20,20),Position=UDim2.fromOffset(4,4),BackgroundColor3=C.muted},sw); round(dot,10)
- local val=state[name]; if val==nil then val=default or false; state[name]=val end
- local function paint(animate)
-  local props={BackgroundColor3=state[name] and C.purple or C.panel2}; local dp={Position=UDim2.fromOffset(state[name] and 28 or 4,4),BackgroundColor3=state[name] and C.white or C.muted}
-  if animate then TweenService:Create(sw,TweenInfo.new(.18),props):Play(); TweenService:Create(dot,TweenInfo.new(.18),dp):Play() else for k,v in pairs(props) do sw[k]=v end; for k,v in pairs(dp) do dot[k]=v end end
+local function slider(p,text,min,max,initial,callback)
+ local value=initial
+ local box=obj('Frame',{Size=UDim2.new(1,0,0,58),BackgroundTransparency=1},p)
+ local name=label(box,text..': '..tostring(value),24,true)
+ local track=obj('TextButton',{Size=UDim2.new(1,0,0,13),Position=UDim2.fromOffset(0,34),Text='',BackgroundColor3=C.field,AutoButtonColor=false},box);corner(track,7)
+ local fill=obj('Frame',{Size=UDim2.new((value-min)/(max-min),0,1,0),BackgroundColor3=C.accent},track);corner(fill,7)
+ local dragging=false
+ local function set(x)
+  local fraction=math.clamp((x-track.AbsolutePosition.X)/math.max(1,track.AbsoluteSize.X),0,1)
+  value=math.floor((min+(max-min)*fraction)*10+.5)/10
+  name.Text=text..': '..tostring(value);fill.Size=UDim2.new(fraction,0,1,0)
+  if callback then pcall(callback,value) end
  end
- paint(false)
- sw.MouseButton1Click:Connect(function() state[name]=not state[name]; paint(true); if callback then local ok,err=pcall(callback,state[name]); if not ok then notify('Setting error: '..tostring(err):sub(1,55)) end end end)
- return f
+ track.MouseButton1Down:Connect(function(x)dragging=true;set(x)end)
+ table.insert(conns,UIS.InputChanged:Connect(function(i)if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then set(i.Position.X)end end))
+ table.insert(conns,UIS.InputEnded:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end))
+ return box
 end
-local function slider(name,detail,min,max,default,callback)
- local f=card(88); local a=label(f,name,13,C.white,true); a.Position=UDim2.fromOffset(14,8); a.Size=UDim2.new(1,-90,0,19)
- local b=label(f,detail,11,C.muted); b.Position=UDim2.fromOffset(14,28); b.Size=UDim2.new(1,-28,0,20)
- local v=label(f,'',12,C.light,true); v.TextXAlignment=Enum.TextXAlignment.Right; v.Position=UDim2.new(1,-76,0,8); v.Size=UDim2.fromOffset(60,20)
- local track=new('Frame',{Position=UDim2.new(0,16,0,65),Size=UDim2.new(1,-32,0,7),BackgroundColor3=C.panel2},f); round(track,4)
- local fill=new('Frame',{Size=UDim2.new(),BackgroundColor3=C.purple},track); round(fill,4)
- local knob=new('Frame',{Size=UDim2.fromOffset(16,16),BackgroundColor3=C.light},track); round(knob,8)
- local current=state[name] or default; local dragging=false
- local function set(n)
-  current=math.floor(math.clamp(n,min,max)+.5); state[name]=current; v.Text=tostring(current)
-  local t=(current-min)/(max-min); fill.Size=UDim2.new(t,0,1,0); knob.Position=UDim2.new(t,-8,.5,-8)
-  if callback then pcall(callback,current) end
- end
- set(current)
- local function fromX(x) set(min+(max-min)*((x-track.AbsolutePosition.X)/math.max(track.AbsoluteSize.X,1))) end
- local hit=new('TextButton',{Position=UDim2.new(0,0,0,-10),Size=UDim2.new(1,0,1,20),BackgroundTransparency=1,Text=''},track)
- hit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true; fromX(i.Position.X) end end)
- UIS.InputChanged:Connect(function(i) if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then fromX(i.Position.X) end end)
- UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false end end)
- return f
+local function dropdown(p,text,options,callback)
+ label(p,text,24,true)
+ local idx=1
+ button(p,options[idx]..'  ▸',function()
+  idx=idx%#options+1
+  local parent=p
+  for _,ch in ipairs(parent:GetChildren()) do if ch:IsA('TextButton') and ch:GetAttribute('Drop_'..text) then ch.Text=options[idx]..'  ▸' end end
+  if callback then callback(options[idx]) end
+ end):SetAttribute('Drop_'..text,true)
 end
-local function action(name,detail,btn,callback)
- local f=card(64); local a=label(f,name,13,C.white,true); a.Position=UDim2.fromOffset(14,9); a.Size=UDim2.new(1,-135,0,20)
- local b=label(f,detail,11,C.muted); b.Position=UDim2.fromOffset(14,31); b.Size=UDim2.new(1,-140,0,25)
- local go=new('TextButton',{Position=UDim2.new(1,-124,.5,-16),Size=UDim2.fromOffset(110,32),BackgroundColor3=C.panel2,Text=btn or 'Run',TextSize=12,TextColor3=C.light,Font=Enum.Font.GothamBold},f); round(go,8); stroke(go,C.purple,.5)
- go.MouseButton1Click:Connect(function() local ok,err=pcall(callback or function() notify('Not connected to game server') end); if not ok then notify(tostring(err):sub(1,55)) end end)
- return f
+local function unavailable(p,text)
+ local b=button(p,text..'  ·  developer server required',function()warn('Violet Hub: '..text..' requires developer-authorized server testing APIs')end)
+ b.TextColor3=C.muted
 end
-local function selector(name,detail,options)
- local f=card(73)
- local a=label(f,name,13,C.white,true); a.Position=UDim2.fromOffset(14,8); a.Size=UDim2.new(1,-30,0,20)
- local b=label(f,detail,11,C.muted); b.Position=UDim2.fromOffset(14,31); b.Size=UDim2.new(1,-190,0,24)
- local selected=state[name] or 1
- local btn=new('TextButton',{Position=UDim2.new(1,-181,0,32),Size=UDim2.fromOffset(165,29),BackgroundColor3=C.panel2,TextColor3=C.light,TextSize=11,Font=Enum.Font.GothamBold,Text=''},f)
- round(btn,7)
- local function update() btn.Text=tostring(options[selected])..'  ▾'; state[name]=selected end
- update()
- btn.MouseButton1Click:Connect(function() selected=selected%#options+1; update() end)
- return f
-end
-local function preview(name,detail)
- toggle(name,detail..' (preview only)',false,function() notify('Preview only • connect your game API') end)
-end
-local function previewAction(name,detail)
- action(name,detail,'Preview',function() notify('Requires authorized game API') end)
-end
-local function note(t) textrow('Integration required',t) end
-local highlights={}
-local function clearESP()
- for _,h in pairs(highlights) do pcall(function() h:Destroy() end) end; table.clear(highlights)
+local function clearHighlights()
+ for _,h in pairs(highlights) do pcall(function()h:Destroy()end)end;table.clear(highlights)
 end
 local function refreshESP()
- clearESP(); if not state['Player outlines'] then return end
- for _,p in ipairs(Players:GetPlayers()) do
-  if p~=player and p.Character then local h=Instance.new('Highlight'); h.Name='VioletLocalOutline'; h.Adornee=p.Character; h.FillTransparency=.8; h.OutlineTransparency=.05; h.FillColor=C.purple; h.OutlineColor=C.light; h.DepthMode=Enum.HighlightDepthMode.Occluded; h.Parent=gui; highlights[p]=h end
+ clearHighlights()
+ if not state.esp then return end
+ for _,pl in ipairs(Players:GetPlayers()) do
+  if pl~=LP and pl.Character then
+   local h=obj('Highlight',{Name='VioletDebugHighlight',Adornee=pl.Character,FillTransparency=.85,OutlineTransparency=0,OutlineColor=C.accent,FillColor=C.accent,DepthMode=Enum.HighlightDepthMode.Occluded},gui)
+   highlights[pl]=h
+  end
  end
 end
-Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(function() task.wait(.3); refreshESP() end) end)
-Players.PlayerRemoving:Connect(function() task.defer(refreshESP) end)
-local cross=new('Frame',{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(5,5),BackgroundColor3=C.purple,Visible=false},gui); round(cross,4)
-local fps=label(gui,'',13,C.light,true); fps.Position=UDim2.fromOffset(12,12); fps.Size=UDim2.fromOffset(240,25); fps.Visible=false
-local frameCount=0; local accum=0
-RunService.RenderStepped:Connect(function(dt)
- if not gui.Parent then return end
- frameCount=frameCount+1; accum=accum+dt
- if accum>=.6 then fps.Text='VIOLET  •  '..math.floor(frameCount/accum)..' FPS'; accum=0; frameCount=0 end
-end)
-local pages={
- {'Home','layout-dashboard','Dashboard','Overview and quick actions'},
- {'Combat','crosshair','Combat','Sheriff, murderer and practice settings'},
- {'ESP','eye','ESP','Local player visibility tools'},
- {'Visuals','palette','Visuals','Camera and display customization'},
- {'Players','users','Players','Session information'},
- {'Teleports','map-pin','Teleports','Waypoint and position tools'},
- {'Autofarm','coins','Autofarm','Coin diagnostics and farm configuration'},
- {'Survival','shield','Survival','Round testing dashboard'},
- {'Boxes','package','Boxes','Inventory and shop integration'},
- {'Servers','server','Servers','Session information'},
- {'Settings','settings','Settings','Interface preferences'}
-}
-local navButtons={}; local active='Home'; local hide
-local function render(tab)
- active=tab; clear()
- for name,b in pairs(navButtons) do b.BackgroundColor3=name==tab and C.panel2 or C.panel; b.TextColor3=name==tab and C.light or C.muted end
- for _,p in ipairs(pages) do if p[1]==tab then heading.Text=p[3]; desc.Text=p[4]; break end end
- if tab=='Home' then
-  section('Welcome'); textrow('Violet Hub • v9','Responsive client-side toolkit','ONLINE')
-  textrow('Connected as',player.DisplayName,player.Name)
-  section('Quick access'); action('Refresh player outlines','Rebuild local visual highlights','Refresh',refreshESP)
-  action('Reset camera FOV','Restore standard 70-degree camera','Reset',function() state['Camera FOV']=70; if workspace.CurrentCamera then workspace.CurrentCamera.FieldOfView=70 end; notify('Camera reset') end)
-  section('Status'); textrow('Players online','Current server population',#Players:GetPlayers())
- elseif tab=='Combat' then
-  section('Sheriff • training controls')
-  preview('Auto target murderer','Target selection for your own practice NPC')
-  preview('Grab gun and shoot','Server-authorized training integration')
-  preview('Auto shoot','Training dummy integration')
-  preview('Auto grab dropped gun','Dropped-tool detector integration')
-  preview('Wallbang','Line-of-sight testing preview')
-  section('Murderer • training controls')
-  preview('Knife kill all','Practice targets only; no player attacks')
-  preview('Knife reach','Visualize intended range in your own game')
-  slider('Knife reach distance','Preview distance in studs',1,40,12)
-  preview('Auto equip knife','Equipment-state integration')
-  slider('Equip knife delay','Delay preview in tenths of a second',0,30,5)
-  preview('Silent throw','Practice projectile integration')
-  slider('Knife hitbox size','Training dummy visualization size',1,30,5)
-  selector('Target selection','Preview target selector',{'None','Training dummy A','Training dummy B'})
-  previewAction('Target action','Practice dummy target action')
-  previewAction('Sheriff action','Practice role test action')
-  section('Silent aim • visual settings')
-  preview('Silent aim preview','Reticle display only')
-  slider('Aim FOV radius','Visual range size',10,250,90)
-  toggle('Crosshair','Centered aim-training marker',false,function(v) cross.Visible=v end)
-  slider('Crosshair size','Adjust marker diameter',3,25,5,function(v) cross.Size=UDim2.fromOffset(v,v) end)
-  section('Fling • interface preview')
-  preview('Fling selected','Non-operational player action')
-  preview('Auto fling','Non-operational player action')
-  preview('Anti fling','Game-specific movement integration')
-  slider('Fling speed preview','Interface value only',1,100,25)
-  note('Combat actions need server-authorized game code. No attacks against live players are implemented.')
- elseif tab=='ESP' then
-  section('Player highlights'); toggle('Player outlines','Visible local outlines (no wall visibility)',false,refreshESP)
-  action('Refresh outlines','Update outlines for current players','Refresh',refreshESP)
-  action('Clear outlines','Remove all Violet outlines','Clear',function() state['Player outlines']=false; clearESP(); render('ESP') end)
-  section('Notes'); textrow('Privacy-friendly view','Uses Roblox Highlight with occluded depth')
- elseif tab=='Visuals' then
-  section('Camera'); slider('Camera FOV','Field of view for local camera',50,100,70,function(v) if workspace.CurrentCamera then workspace.CurrentCamera.FieldOfView=v end end)
-  toggle('Crosshair','Show a centered marker',false,function(v) cross.Visible=v end)
-  slider('Crosshair size','Adjust marker diameter',3,25,5,function(v) cross.Size=UDim2.fromOffset(v,v) end)
-  section('Overlays'); toggle('FPS counter','Display a small performance indicator',false,function(v) fps.Visible=v end)
-  toggle('Low graphics','Disable local post-processing effects',false,function(v)
-   for _,e in ipairs(Lighting:GetChildren()) do if e:IsA('PostEffect') then if e:GetAttribute('VioletOriginalEnabled')==nil then e:SetAttribute('VioletOriginalEnabled',e.Enabled) end; e.Enabled=v and false or e:GetAttribute('VioletOriginalEnabled') end end
-  end)
- elseif tab=='Players' then
-  section('Session'); textrow('Current players','Active players in this server',#Players:GetPlayers())
-  for _,p in ipairs(Players:GetPlayers()) do textrow(p.DisplayName,'@'..p.Name,p==player and 'YOU' or '') end
-  section('Actions'); action('Refresh player list','Rebuild the live player listing','Refresh',function() render('Players') end)
- elseif tab=='Teleports' then
-  section('Position'); local pos=player.Character and player.Character:FindFirstChild('HumanoidRootPart'); textrow('Your coordinates','Current character position',pos and tostring(pos.Position) or 'Not spawned')
-  action('Copy coordinates','Show coordinates for map debugging','Show',function() local p=player.Character and player.Character:FindFirstChild('HumanoidRootPart'); notify(p and tostring(p.Position) or 'Character not available') end)
-  section('Waypoints'); note('Server-authorized waypoint travel can be connected to your own game.')
- elseif tab=='Autofarm' then
-  section('Coin system • diagnostics')
-  local folder=workspace:FindFirstChild('Coins')
-  textrow('Coin container','Checks workspace.Coins',folder and 'FOUND' or 'NOT FOUND')
-  action('Scan coin objects','Count coin objects in your experience','Scan',function()
-   local f=workspace:FindFirstChild('Coins'); notify(f and ('Coin objects: '..#f:GetChildren()) or 'workspace.Coins not found')
-  end)
-  section('Coin farm • configuration preview')
-  preview('Auto collect coins','Requires your own coin collection API')
-  preview('Float above coins','Movement integration preview')
-  preview('Avoid threats','Role and distance integration preview')
-  preview('Noclip mode','Movement integration preview')
-  preview('Coin hitbox preview','Coin detector visualization')
-  slider('Coin hitbox size','Visual preview in studs',1,30,6)
-  slider('Tween speed','Preview speed value',1,100,25)
-  slider('Collect distance','Preview distance in studs',1,50,10)
-  slider('Teleport delay','Preview delay in tenths of a second',0,50,10)
-  selector('Travel method','Configuration only',{'Tween','Instant','Path','None'})
-  previewAction('Test collection route','Requires server-authorized collection')
-  section('Survival farm • configuration preview')
-  preview('Survival mode','Round-manager integration')
-  preview('Avoid murderer','Requires server-provided role data')
-  preview('Auto restart route','Round-manager integration')
-  note('Collection, rewards and movement automation are not active in this client toolkit.')
- elseif tab=='Survival' then
-  section('Round overview'); textrow('Character status','Current local player',player.Character and 'SPAWNED' or 'WAITING')
-  action('Refresh status','Recheck character state','Refresh',function() render('Survival') end)
-  section('Testing'); note('Round simulation and role state require your game round manager.')
- elseif tab=='Boxes' then
-  section('Inventory'); textrow('Local inventory','Game-specific inventory integration','NOT LINKED')
-  action('Inspect backpack','Count Roblox Tool objects','Inspect',function() local b=player:FindFirstChild('Backpack'); notify('Backpack tools: '..(b and #b:GetChildren() or 0)) end)
-  section('Shop'); note('Box purchases and prestige require your game shop API.')
- elseif tab=='Servers' then
-  section('Current session'); textrow('Place ID','Current experience',game.PlaceId)
-  textrow('Job ID','Current server identifier',game.JobId:sub(1,14)..'…')
-  textrow('Population','Players currently connected',#Players:GetPlayers())
-  action('Refresh server stats','Update the server information','Refresh',function() render('Servers') end)
- elseif tab=='Settings' then
-  section('Appearance'); slider('UI opacity','Window background opacity',0,40,0,function(v) root.BackgroundTransparency=v/100 end)
-  slider('UI scale','Adjust overall interface size',60,110,100,function(v) scale.Scale=v/100 end)
-  section('Window'); action('Minimize hub','Hide panel and keep floating button','Minimize',function() if hide then hide() end end)
-  action('Reset position','Move window back to screen center','Reset',function() root.Position=UDim2.new(.5,-360,.5,-242); notify('Position reset') end)
-  section('Help'); textrow('Keyboard shortcut','Right Shift toggles the hub')
+local function clearMarkers()for _,v in ipairs(markers) do pcall(function()v:Destroy()end)end;table.clear(markers)end
+local function scan(name,show)
+ local count=0;clearMarkers()
+ for _,v in ipairs(Workspace:GetDescendants()) do
+  if count>=100 then break end
+  if v:IsA('BasePart') and string.find(v.Name:lower(),name,1,true) then
+   count=count+1
+   if show then local bb=obj('BillboardGui',{Size=UDim2.fromOffset(90,25),AlwaysOnTop=false,StudsOffset=Vector3.new(0,2,0),Adornee=v},gui)
+    local tx=label(bb,name:upper(),25,true,C.accent);tx.TextXAlignment=Enum.TextXAlignment.Center;table.insert(markers,bb)end
+  end
  end
+ return count
 end
-for i,p in ipairs(pages) do
- local b=new('TextButton',{Name=p[1],LayoutOrder=i,Size=UDim2.new(1,0,0,34),BackgroundColor3=C.panel,Text='   '..p[1],TextColor3=C.muted,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Font=Enum.Font.GothamBold,AutoButtonColor=true},sidebar)
- round(b,8); navButtons[p[1]]=b; b.MouseButton1Click:Connect(function() render(p[1]) end)
+local cross=obj('TextLabel',{Size=UDim2.fromOffset(36,36),Position=UDim2.new(.5,-18,.5,-18),BackgroundTransparency=1,Text='+',Font=Enum.Font.GothamBold,TextSize=27,TextColor3=C.accent,Visible=false},gui)
+local watermark=obj('TextLabel',{Size=UDim2.fromOffset(200,24),Position=UDim2.new(1,-210,0,12),BackgroundTransparency=1,Text='VIOLET HUB · QA',Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.accent,Visible=false},gui)
+local fpsLabel=obj('TextLabel',{Size=UDim2.fromOffset(110,24),Position=UDim2.new(1,-120,0,40),BackgroundTransparency=1,Text='FPS: --',Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.text,Visible=false},gui)
+local function effect(class,name,on)
+ local e=Lighting:FindFirstChild('Violet_'..name)
+ if not e and on then e=obj(class,{Name='Violet_'..name},Lighting)end
+ if e then e.Enabled=on end
 end
-local floating=new('TextButton',{Size=UDim2.fromOffset(53,53),Position=UDim2.new(0,16,.5,-26),BackgroundColor3=C.panel,Text='✦',TextSize=28,TextColor3=C.light,Visible=false,AutoButtonColor=true},gui); round(floating,15); stroke(floating,C.purple,.2)
-local busy=false
-hide=function()
- if busy or not root.Visible then return end; busy=true
- local t=TweenService:Create(root,TweenInfo.new(.2,Enum.EasingStyle.Quad),{BackgroundTransparency=1})
- t:Play(); t.Completed:Wait(); root.Visible=false; root.BackgroundTransparency=state['UI opacity'] and state['UI opacity']/100 or 0; floating.Visible=true; busy=false
+local pagespec={}
+pagespec.Home=function()
+ local p=section('Welcome');info(p,'Violet Hub v10 · local visual tools and authorized QA diagnostics');button(p,'Refresh player highlights',refreshESP)
+ local q=section('Live session');info(q,'Place ID: '..tostring(game.PlaceId));info(q,'Job ID: '..tostring(game.JobId));info(q,'Players: '..#Players:GetPlayers())
 end
-local function show()
- if busy or root.Visible then return end; busy=true; floating.Visible=false; root.Visible=true; root.BackgroundTransparency=1
- local t=TweenService:Create(root,TweenInfo.new(.23,Enum.EasingStyle.Quad),{BackgroundTransparency=state['UI opacity'] and state['UI opacity']/100 or 0})
- t:Play(); t.Completed:Wait(); busy=false
+pagespec.Combat=function()
+ local p=section('sheriff');info(p,'Weapon and dropped-gun inspection works locally. Combat actions require developer server support.')
+ button(p,'Inspect equipped tools',function()local ch=LP.Character;local a={};if ch then for _,v in ipairs(ch:GetChildren())do if v:IsA('Tool')then table.insert(a,v.Name)end end end;warn('Equipped tools: '..(#a>0 and table.concat(a,', ') or 'none'))end)
+ button(p,'Scan dropped guns',function()warn('Gun-like parts found: '..scan('gun',state.gun))end)
+ unavailable(p,'Auto Kill Murderer');unavailable(p,'Auto Shoot Murderer');unavailable(p,'Auto Grab Drop Gun');unavailable(p,'Wallbang')
+ local m=section('murderer');unavailable(m,'Knife Kill All');unavailable(m,'Silent Throw');unavailable(m,'Kill Selected');unavailable(m,'Kill Sheriff')
+ slider(m,'Reach visualization (studs)',2,30,15,function(v)state.reach=v end)
+ slider(m,'Equip timing test (s)',0,3,1.1,function(v)state.delay=v end)
+ slider(m,'Hitbox display scale',1,10,1,function(v)state.hitbox=v end)
+ local a=section('aim diagnostics');toggle(a,'Crosshair visualizer','crosshair',function(v)cross.Visible=v end)
+ slider(a,'Camera FOV',40,110,70,function(v)if Workspace.CurrentCamera then Workspace.CurrentCamera.FieldOfView=v end end)
+ unavailable(a,'Silent Aim');unavailable(a,'Camera Aimbot')
+ local f=section('physics diagnostics');info(f,'Use controlled test dummies and server-side physics logging for knockback tests.');unavailable(f,'Fling Player');unavailable(f,'Fling All')
 end
-mini.MouseButton1Click:Connect(hide)
-close.MouseButton1Click:Connect(hide)
-floating.MouseButton1Click:Connect(show)
-UIS.InputBegan:Connect(function(i,processed) if not processed and i.KeyCode==Enum.KeyCode.RightShift then if root.Visible then hide() else show() end end end)
--- Dragging supports mouse and touch, and never steals sidebar interactions.
-local dragging=false; local dragStart,windowStart,dragInput
-header.InputBegan:Connect(function(i)
- if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-  dragging=true; dragStart=i.Position; windowStart=root.Position; dragInput=i
- end
+pagespec.Farm=function()
+ local p=section('coins');button(p,'Scan coin objects',function()warn('Coin-like parts found: '..scan('coin',state.coins))end)
+ toggle(p,'Show coin markers','coins',function(v)if v then scan('coin',true)else clearMarkers()end end)
+ slider(p,'Route preview speed',1,50,16,function(v)state.routeSpeed=v end)
+ slider(p,'Route preview height',0,20,5,function(v)state.routeHeight=v end)
+ slider(p,'Route preview delay',0,5,0,function(v)state.routeDelay=v end)
+ dropdown(p,'Route preview mode',{'Tween','Instant','Waypoints'},function(v)state.routeMode=v end)
+ unavailable(p,'Coin Farm');unavailable(p,'Auto Collect Rewards');unavailable(p,'Coin Hitbox Modification')
+ local m=section('map vote');info(m,'Map vote testing requires server-authorized voting APIs.');unavailable(m,'Auto Vote Map');unavailable(m,'Vote Duplication')
+ local b=section('boxes / prestige');unavailable(b,'Auto Open Boxes');unavailable(b,'Auto Prestige')
+end
+pagespec.HUD=function()
+ local p=section('hud buttons');toggle(p,'Show Crosshair','crosshair',function(v)cross.Visible=v end)
+ toggle(p,'Show Watermark','watermark',function(v)watermark.Visible=v end)
+ slider(p,'Crosshair size',14,65,36,function(v)cross.Size=UDim2.fromOffset(v,v);cross.Position=UDim2.new(.5,-v/2,.5,-v/2);cross.TextSize=v*.75 end)
+ local q=section('keybinds');info(q,'Right Shift toggles Violet Hub.');info(q,'All combat keybinds require authorized server testing actions.')
+end
+pagespec.ESP=function()
+ local p=section('player esp');toggle(p,'Enabled','esp',function()refreshESP()end)
+ toggle(p,'Show name labels (Roblox nameplates)','names',function(v)for _,pl in ipairs(Players:GetPlayers())do if pl.Character then local h=pl.Character:FindFirstChildOfClass('Humanoid');if h then h.DisplayDistanceType=v and Enum.HumanoidDisplayDistanceType.Viewer or Enum.HumanoidDisplayDistanceType.None end end end end)
+ button(p,'Refresh player outlines',refreshESP)
+ local q=section('object markers');toggle(q,'Dropped Gun ESP','gun',function(v)if v then scan('gun',true)else clearMarkers()end end)
+ toggle(q,'Coin Object Markers','coins',function(v)if v then scan('coin',true)else clearMarkers()end end)
+ local r=section('role information');info(r,'Roles cannot be reliably inferred from public client data. Connect your own authorized role-state API for exact roles.')
+end
+pagespec.Visuals=function()
+ local p=section('lighting / world');toggle(p,'Lighting Override','fullbright',function(v)Lighting.Brightness=v and 3 or original.brightness;Lighting.ClockTime=v and 14 or original.clock;Lighting.Ambient=v and Color3.fromRGB(180,180,180) or original.ambient end)
+ toggle(p,'Motion Blur','blur',function(v)effect('BlurEffect','Blur',v);local e=Lighting:FindFirstChild('Violet_Blur');if e then e.Size=10 end end)
+ toggle(p,'Bloom','bloom',function(v)effect('BloomEffect','Bloom',v)end)
+ toggle(p,'Sun Rays','rays',function(v)effect('SunRaysEffect','Rays',v)end)
+ toggle(p,'Color Correction','cc',function(v)effect('ColorCorrectionEffect','CC',v)end)
+ local q=section('camera');slider(q,'Field of View',40,110,70,function(v)if Workspace.CurrentCamera then Workspace.CurrentCamera.FieldOfView=v end end)
+ toggle(q,'Crosshair','crosshair',function(v)cross.Visible=v end)
+ local r=section('skybox / weather');info(r,'Custom skybox and weather assets need approved asset IDs from your experience.');info(r,'No external assets are loaded automatically.')
+end
+pagespec.Players=function()
+ local p=section('player information');button(p,'List players in output',function()for _,pl in ipairs(Players:GetPlayers())do warn(pl.DisplayName..' (@'..pl.Name..')')end end)
+ button(p,'Inspect local character',function()local c=LP.Character;local h=c and c:FindFirstChildOfClass('Humanoid');warn('Character:',c and c.Name or 'none','Health:',h and h.Health or 'none')end)
+ local q=section('performance');toggle(q,'FPS counter','fps',function(v)fpsLabel.Visible=v end)
+ toggle(q,'Hide 3D rendering locally','render',function(v)pcall(function()RunService:Set3dRenderingEnabled(not v)end)end)
+ local r=section('movement testing');info(r,'WalkSpeed, fly, noclip, and movement bypass tests need developer-approved character controls.')
+end
+pagespec.Servers=function()
+ local p=section('server');info(p,'Place ID: '..tostring(game.PlaceId));info(p,'Game ID: '..tostring(game.GameId));info(p,'Job ID: '..tostring(game.JobId));info(p,'Players: '..#Players:GetPlayers())
+ button(p,'Refresh player count',function()warn('Players:',#Players:GetPlayers())end)
+ local q=section('teleports');info(q,'Teleport destinations require server-authorized map waypoints.');info(q,'Current position: use Players → Inspect local character.')
+ local r=section('roles');info(r,'Sheriff: unavailable without authorized role data');info(r,'Murderer: unavailable without authorized role data');info(r,'Hero: unavailable without authorized role data')
+end
+pagespec.Settings=function()
+ local p=section('general');button(p,'Unload Violet Hub',function()clearHighlights();clearMarkers();for _,c in ipairs(conns)do pcall(function()c:Disconnect()end)end;gui:Destroy()end)
+ button(p,'Reset window position',function()main.Position=UDim2.new(.5,-450,.5,-290)end)
+ slider(p,'Menu scale',.6,1.2,1,function(v)scale.Scale=v end)
+ toggle(p,'Show menu button','menu',function(v)floating.Visible=v and not main.Visible end)
+ toggle(p,'Show watermark','watermark',function(v)watermark.Visible=v end)
+ local a=section('appearance');slider(a,'Background transparency',0,.65,0,function(v)main.BackgroundTransparency=v end)
+ slider(a,'Fade speed (seconds)',.05,.6,.2,function(v)state.fade=v end)
+ dropdown(a,'Theme preset',{'Violet','Rose','Blue'},function(v)C.accent=(v=='Blue' and Color3.fromRGB(70,120,240))or(v=='Rose' and Color3.fromRGB(235,70,125))or Color3.fromRGB(215,29,112);stroke.Color=C.accent;floating.BackgroundColor3=C.accent end)
+ local b=section('configs');info(b,'Session settings only. Persistent config files require a trusted, supported storage system.');button(b,'Print current config to output',function()for k,v in pairs(state)do warn(k,v)end end)
+end
+local tabs={'Home','Combat','Farm','HUD','ESP','Visuals','Players','Servers','Settings'}
+local tabButtons={}
+local current='Home'
+local function show(tab)
+ current=tab;heading.Text=tab:upper();clearPage();pagespec[tab]()
+ for n,b in pairs(tabButtons)do b.BackgroundColor3=n==tab and C.accent or C.field end
+ pages.CanvasPosition=Vector2.zero
+end
+for _,name in ipairs(tabs)do
+ local b=button(sidebar,name,function()show(name)end,39)
+ tabButtons[name]=b
+end
+local function visibility(v)
+ if v then main.Visible=true;floating.Visible=false;main.BackgroundTransparency=1;Tween:Create(main,TweenInfo.new(state.fade or .2),{BackgroundTransparency=0}):Play()
+ else main.Visible=false;floating.Visible=state.menu end
+end
+close.MouseButton1Click:Connect(function()visibility(false)end)
+mini.MouseButton1Click:Connect(function()visibility(false)end)
+floating.MouseButton1Click:Connect(function()visibility(true)end)
+local dragging=false,startPos,startInput
+bar.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true;startInput=i.Position;startPos=main.Position end end)
+table.insert(conns,UIS.InputChanged:Connect(function(i)if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then local d=i.Position-startInput;main.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)end end))
+table.insert(conns,UIS.InputEnded:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false end end))
+table.insert(conns,UIS.InputBegan:Connect(function(i,gp)if not gp and i.KeyCode==Enum.KeyCode.RightShift then visibility(not main.Visible)end end))
+search:GetPropertyChangedSignal('Text'):Connect(function()
+ local query=search.Text:lower()
+ for _,v in ipairs(pages:GetChildren())do if v:IsA('Frame')then
+  if query=='' then v.Visible=true else
+   local found=false
+   for _,x in ipairs(v:GetDescendants())do if (x:IsA('TextLabel') or x:IsA('TextButton')) and x.Text:lower():find(query,1,true)then found=true;break end end
+   v.Visible=found
+  end
+ end end
 end)
-UIS.InputChanged:Connect(function(i)
- if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or (dragInput and i==dragInput)) then
-  local delta=i.Position-dragStart
-  root.Position=UDim2.new(windowStart.X.Scale,windowStart.X.Offset+delta.X,windowStart.Y.Scale,windowStart.Y.Offset+delta.Y)
- end
-end)
-UIS.InputEnded:Connect(function(i)
- if i.UserInputType==Enum.UserInputType.MouseButton1 or (dragInput and i==dragInput) then dragging=false; dragInput=nil end
-end)
-render('Home')
-root.BackgroundTransparency=1
-TweenService:Create(root,TweenInfo.new(.35,Enum.EasingStyle.Quad),{BackgroundTransparency=0}):Play()
-notify('Violet Hub v9 loaded • Drag title bar to move')
+local frames,elapsed=0,0
+table.insert(conns,RunService.RenderStepped:Connect(function(dt)
+ frames=frames+1;elapsed=elapsed+dt
+ if elapsed>=.75 then if state.fps then fpsLabel.Text='FPS: '..math.floor(frames/elapsed+.5)end;frames=0;elapsed=0 end
+end))
+table.insert(conns,Players.PlayerAdded:Connect(function()task.delay(1,refreshESP)end))
+table.insert(conns,Players.PlayerRemoving:Connect(function()task.delay(.1,refreshESP)end))
+show('Home')
+print('Violet Hub v10 loaded. Right Shift toggles menu.')
