@@ -1,4 +1,4 @@
--- Violet Hub V9.3 | preserves V9 layout; client-side QA and authorized integrations
+-- Violet Hub V9.5 | preserves V9 layout; client-side QA and authorized integrations
 -- Run in a Roblox client context. No executor-specific APIs required.
 local Players = game:GetService('Players')
 local UIS = game:GetService('UserInputService')
@@ -38,7 +38,7 @@ rescale()
 if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal('ViewportSize'):Connect(rescale) end
 local header=new('Frame',{Size=UDim2.new(1,0,0,53),BackgroundColor3=C.panel,BorderSizePixel=0},root)
 local title=label(header,'✦  VIOLET HUB',18,C.light,true); title.Position=UDim2.fromOffset(18,8); title.Size=UDim2.fromOffset(230,25)
-local subtitle=label(header,'v9.3  •  CLIENT TOOLKIT',10,C.muted); subtitle.Position=UDim2.fromOffset(20,31); subtitle.Size=UDim2.fromOffset(200,15)
+local subtitle=label(header,'v9.5  •  CLIENT TOOLKIT',10,C.muted); subtitle.Position=UDim2.fromOffset(20,31); subtitle.Size=UDim2.fromOffset(200,15)
 local function topBtn(text,x)
  local b=new('TextButton',{Size=UDim2.fromOffset(34,30),Position=UDim2.new(1,x,0,11),BackgroundColor3=C.panel2,Text=text,TextSize=19,TextColor3=C.white,Font=Enum.Font.GothamBold,AutoButtonColor=true},header)
  round(b,8); return b
@@ -216,22 +216,23 @@ local function clearMarkers()
 end
 local function updateMarkers()
  clearMarkers()
- if not state['Coin markers'] and not state['Dropped gun markers'] then return end
+ if not state['Coin markers'] and not state['Dropped gun markers'] and not state['Candy markers'] then return end
  local maxMarkers=80
  for _,obj in ipairs(workspace:GetDescendants()) do
   if #worldMarkers>=maxMarkers then break end
   if obj:IsA('BasePart') then
    local n=obj.Name:lower()
    local coin=state['Coin markers'] and n=='coin'
+   local candy=state['Candy markers'] and (n=='candy' or obj:GetAttribute('CoinID')=='Candy')
    local gun=state['Dropped gun markers'] and (n=='gundrop' or n=='droppedgun')
-   if coin or gun then
+   if coin or gun or candy then
     local marker=Instance.new('BillboardGui')
     marker.Name='VioletWorldMarker'; marker.Adornee=obj
     marker.Size=UDim2.fromOffset(100,24); marker.StudsOffsetWorldSpace=Vector3.new(0,2,0)
     marker.AlwaysOnTop=false; marker.MaxDistance=120
     local t=Instance.new('TextLabel'); t.Size=UDim2.fromScale(1,1); t.BackgroundTransparency=.3
-    t.BackgroundColor3=C.panel; t.TextColor3=coin and Color3.fromRGB(255,218,95) or C.light
-    t.Font=Enum.Font.GothamBold; t.TextSize=12; t.Text=coin and 'COIN' or 'DROPPED GUN'; t.Parent=marker
+    t.BackgroundColor3=C.panel; t.TextColor3=coin and Color3.fromRGB(255,218,95) or (candy and Color3.fromRGB(255,130,205) or C.light)
+    t.Font=Enum.Font.GothamBold; t.TextSize=12; t.Text=coin and 'COIN' or (candy and 'CANDY' or 'DROPPED GUN'); t.Parent=marker
     marker.Parent=gui; table.insert(worldMarkers,marker)
    end
   end
@@ -272,7 +273,7 @@ task.spawn(function()
  while gui.Parent do
   task.wait(2.5)
   if state['Player outlines'] then refreshESP() end
-  if state['Coin markers'] or state['Dropped gun markers'] then updateMarkers() end
+  if state['Coin markers'] or state['Dropped gun markers'] or state['Candy markers'] then updateMarkers() end
  end
 end)
 cross=new('Frame',{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(5,5),BackgroundColor3=C.purple,Visible=false},gui); round(cross,4)
@@ -302,7 +303,7 @@ local function render(tab)
  for name,b in pairs(navButtons) do b.BackgroundColor3=name==tab and C.panel2 or C.panel; b.TextColor3=name==tab and C.light or C.muted end
  for _,p in ipairs(pages) do if p[1]==tab then heading.Text=p[3]; desc.Text=p[4]; break end end
  if tab=='Home' then
-  section('Welcome'); textrow('Violet Hub • v9.3','Responsive client-side toolkit','ONLINE')
+  section('Welcome'); textrow('Violet Hub • v9.5','Responsive client-side toolkit','ONLINE')
   textrow('Connected as',player.DisplayName,player.Name)
   section('Quick access'); action('Refresh player outlines','Rebuild local visual highlights','Refresh',refreshESP)
   action('Reset camera FOV','Restore standard 70-degree camera','Reset',function() state['Camera FOV']=70; if workspace.CurrentCamera then workspace.CurrentCamera.FieldOfView=originalFOV end; notify('Camera reset') end)
@@ -345,6 +346,7 @@ local function render(tab)
   action('Clear outlines','Remove all Violet outlines','Clear',function() state['Player outlines']=false; clearESP(); render('ESP') end)
   section('MM2 object markers')
   toggle('Coin markers','Show labels for nearby replicated coins',false,updateMarkers)
+  toggle('Candy markers','Show labels for replicated candy collectibles',false,updateMarkers)
   toggle('Dropped gun markers','Show labels for visible dropped guns',false,updateMarkers)
   action('Refresh world markers','Re-scan currently replicated map objects','Refresh',updateMarkers)
   section('Notes'); textrow('Visible equipment only','Role colors reflect equipped tools, not secret server roles')
@@ -375,6 +377,31 @@ local function render(tab)
   section('Equipment')
   action('Inspect my tools','Show tool names in backpack and character','Inspect',function() local t=localTools(); notify(#t>0 and table.concat(t,', '):sub(1,75) or 'No tools visible') end)
   section('MM2 equipment observations')
+  action('Notify visible weapon holders','Show players currently holding a knife or gun','Notify',function()
+   local found={}
+   for _,other in ipairs(Players:GetPlayers()) do
+    if other~=player then
+     local observation=visibleRole(other)
+     if observation~='Unknown' then table.insert(found,other.DisplayName..': '..observation) end
+    end
+   end
+   notify(#found>0 and table.concat(found,' | '):sub(1,120) or 'No equipped weapons visible')
+  end)
+  action('Nearest player distance','Measure distance to a replicated player character','Measure',function()
+   local myRoot=player.Character and player.Character:FindFirstChild('HumanoidRootPart')
+   if not myRoot then notify('Your character is not ready'); return end
+   local closest,dist=nil,math.huge
+   for _,other in ipairs(Players:GetPlayers()) do
+    if other~=player and other.Character then
+     local theirRoot=other.Character:FindFirstChild('HumanoidRootPart')
+     if theirRoot then
+      local d=(myRoot.Position-theirRoot.Position).Magnitude
+      if d<dist then closest=other; dist=d end
+     end
+    end
+   end
+   notify(closest and (closest.DisplayName..': '..math.floor(dist+0.5)..' studs') or 'No nearby players found')
+  end)
   action('Refresh visible equipment','Recheck tools held by other characters','Refresh',function() render('Players') end)
   for _,other in ipairs(Players:GetPlayers()) do if other~=player then textrow(other.DisplayName,'Equipped tool observation',visibleRole(other)) end end
   section('Session'); textrow('Current players','Active players in this server',#Players:GetPlayers())
@@ -388,6 +415,11 @@ local function render(tab)
   section('Live world diagnostics')
   action('Scan all coin-named parts','Search replicated workspace objects','Scan',function() notify('Coin-named parts: '..countNamed('coin')) end)
   toggle('Coin markers','Label replicated coins in the map',false,updateMarkers)
+  toggle('Candy markers','Label replicated candy in the map',false,updateMarkers)
+  action('Scan candy objects','Count candy names and Candy attributes','Scan',function()
+   local n=0; for _,o in ipairs(workspace:GetDescendants()) do if o:IsA('BasePart') and (o.Name:lower()=='candy' or o:GetAttribute('CoinID')=='Candy') then n=n+1 end end
+   notify('Visible candy objects: '..n)
+  end)
   section('Coin system • diagnostics')
   local folder=workspace:FindFirstChild('Coins')
   textrow('Coin container','Checks workspace.Coins',folder and 'FOUND' or 'NOT FOUND')
@@ -410,14 +442,20 @@ local function render(tab)
   preview('Survival mode','Round-manager integration')
   preview('Avoid murderer','Requires server-provided role data')
   preview('Auto restart route','Round-manager integration')
-  note('Collection, rewards and movement automation are not active in this client toolkit.')
+  note('Markers and scanners are functional. Collection and reward automation are not included.')
  elseif tab=='Survival' then
   section('Character status')
   local hum=player.Character and player.Character:FindFirstChildOfClass('Humanoid')
   textrow('Current health','Locally replicated humanoid health',hum and math.floor(hum.Health)..' / '..math.floor(hum.MaxHealth) or 'Unknown')
   section('Round overview'); textrow('Character status','Current local player',player.Character and 'SPAWNED' or 'WAITING')
+  local rs=game:GetService('ReplicatedStorage')
+  local remotes=rs:FindFirstChild('Remotes'); local gameplay=remotes and remotes:FindFirstChild('Gameplay')
+  local start=gameplay and gameplay:FindFirstChild('RoundStart'); local finish=gameplay and gameplay:FindFirstChild('RoundEndFade')
+  textrow('Round event visibility','Read-only check for replicated signals',start and finish and 'BOTH FOUND' or 'NOT EXPOSED')
+  local coinContainers=0; for _,o in ipairs(workspace:GetChildren()) do if o:FindFirstChild('CoinContainer') then coinContainers=coinContainers+1 end end
+  textrow('Map coin containers','Replicated CoinContainer folders',coinContainers)
   action('Refresh status','Recheck character state','Refresh',function() render('Survival') end)
-  section('Testing'); note('Round simulation and role state require your game round manager.')
+  section('Testing'); note('Round events are inspected only. No gameplay remotes are fired or modified.')
  elseif tab=='Boxes' then
   section('Inventory'); textrow('Local inventory','Game-specific inventory integration','NOT LINKED')
   action('Inspect backpack','Count Roblox Tool objects','Inspect',function() local b=player:FindFirstChild('Backpack'); notify('Backpack tools: '..(b and #b:GetChildren() or 0)) end)
