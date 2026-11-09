@@ -1,4 +1,4 @@
--- Violet Hub V6 | client-side UI and visual QA toolkit
+-- Violet Hub V9 | client-side UI and visual QA toolkit
 -- Run in a Roblox client context. No executor-specific APIs required.
 local Players = game:GetService('Players')
 local UIS = game:GetService('UserInputService')
@@ -9,10 +9,10 @@ local player = Players.LocalPlayer
 if not player then warn('Violet Hub: LocalPlayer unavailable'); return end
 local pg = player:WaitForChild('PlayerGui', 10)
 if not pg then warn('Violet Hub: PlayerGui unavailable'); return end
-local old = pg:FindFirstChild('VioletHubV6')
+local old = pg:FindFirstChild('VioletHubV9')
 if old then old:Destroy() end
 local gui = Instance.new('ScreenGui')
-gui.Name='VioletHubV6'; gui.ResetOnSpawn=false; gui.IgnoreGuiInset=true; gui.DisplayOrder=999
+gui.Name='VioletHubV9'; gui.ResetOnSpawn=false; gui.IgnoreGuiInset=true; gui.DisplayOrder=999
 pcall(function() gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling end)
 gui.Parent=pg
 local C={bg=Color3.fromRGB(12,10,23),panel=Color3.fromRGB(22,18,38),panel2=Color3.fromRGB(31,25,51),purple=Color3.fromRGB(153,91,255),light=Color3.fromRGB(220,205,255),muted=Color3.fromRGB(157,148,177),white=Color3.fromRGB(245,240,255),green=Color3.fromRGB(100,229,169)}
@@ -37,7 +37,7 @@ rescale()
 if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal('ViewportSize'):Connect(rescale) end
 local header=new('Frame',{Size=UDim2.new(1,0,0,53),BackgroundColor3=C.panel,BorderSizePixel=0},root)
 local title=label(header,'✦  VIOLET HUB',18,C.light,true); title.Position=UDim2.fromOffset(18,8); title.Size=UDim2.fromOffset(230,25)
-local subtitle=label(header,'v6  •  CLIENT TOOLKIT',10,C.muted); subtitle.Position=UDim2.fromOffset(20,31); subtitle.Size=UDim2.fromOffset(200,15)
+local subtitle=label(header,'v9  •  CLIENT TOOLKIT',10,C.muted); subtitle.Position=UDim2.fromOffset(20,31); subtitle.Size=UDim2.fromOffset(200,15)
 local function topBtn(text,x)
  local b=new('TextButton',{Size=UDim2.fromOffset(34,30),Position=UDim2.new(1,x,0,11),BackgroundColor3=C.panel2,Text=text,TextSize=19,TextColor3=C.white,Font=Enum.Font.GothamBold,AutoButtonColor=true},header)
  round(b,8); return b
@@ -118,6 +118,24 @@ local function action(name,detail,btn,callback)
  go.MouseButton1Click:Connect(function() local ok,err=pcall(callback or function() notify('Not connected to game server') end); if not ok then notify(tostring(err):sub(1,55)) end end)
  return f
 end
+local function selector(name,detail,options)
+ local f=card(73)
+ local a=label(f,name,13,C.white,true); a.Position=UDim2.fromOffset(14,8); a.Size=UDim2.new(1,-30,0,20)
+ local b=label(f,detail,11,C.muted); b.Position=UDim2.fromOffset(14,31); b.Size=UDim2.new(1,-190,0,24)
+ local selected=state[name] or 1
+ local btn=new('TextButton',{Position=UDim2.new(1,-181,0,32),Size=UDim2.fromOffset(165,29),BackgroundColor3=C.panel2,TextColor3=C.light,TextSize=11,Font=Enum.Font.GothamBold,Text=''},f)
+ round(btn,7)
+ local function update() btn.Text=tostring(options[selected])..'  ▾'; state[name]=selected end
+ update()
+ btn.MouseButton1Click:Connect(function() selected=selected%#options+1; update() end)
+ return f
+end
+local function preview(name,detail)
+ toggle(name,detail..' (preview only)',false,function() notify('Preview only • connect your game API') end)
+end
+local function previewAction(name,detail)
+ action(name,detail,'Preview',function() notify('Requires authorized game API') end)
+end
 local function note(t) textrow('Integration required',t) end
 local highlights={}
 local function clearESP()
@@ -141,12 +159,12 @@ RunService.RenderStepped:Connect(function(dt)
 end)
 local pages={
  {'Home','layout-dashboard','Dashboard','Overview and quick actions'},
- {'Combat','crosshair','Combat','Target-practice UI settings'},
+ {'Combat','crosshair','Combat','Sheriff, murderer and practice settings'},
  {'ESP','eye','ESP','Local player visibility tools'},
  {'Visuals','palette','Visuals','Camera and display customization'},
  {'Players','users','Players','Session information'},
  {'Teleports','map-pin','Teleports','Waypoint and position tools'},
- {'Autofarm','coins','Autofarm','Coin-system QA overview'},
+ {'Autofarm','coins','Autofarm','Coin diagnostics and farm configuration'},
  {'Survival','shield','Survival','Round testing dashboard'},
  {'Boxes','package','Boxes','Inventory and shop integration'},
  {'Servers','server','Servers','Session information'},
@@ -158,16 +176,40 @@ local function render(tab)
  for name,b in pairs(navButtons) do b.BackgroundColor3=name==tab and C.panel2 or C.panel; b.TextColor3=name==tab and C.light or C.muted end
  for _,p in ipairs(pages) do if p[1]==tab then heading.Text=p[3]; desc.Text=p[4]; break end end
  if tab=='Home' then
-  section('Welcome'); textrow('Violet Hub • v6','Responsive client-side toolkit','ONLINE')
+  section('Welcome'); textrow('Violet Hub • v9','Responsive client-side toolkit','ONLINE')
   textrow('Connected as',player.DisplayName,player.Name)
   section('Quick access'); action('Refresh player outlines','Rebuild local visual highlights','Refresh',refreshESP)
   action('Reset camera FOV','Restore standard 70-degree camera','Reset',function() state['Camera FOV']=70; if workspace.CurrentCamera then workspace.CurrentCamera.FieldOfView=70 end; notify('Camera reset') end)
   section('Status'); textrow('Players online','Current server population',#Players:GetPlayers())
  elseif tab=='Combat' then
-  section('Practice reticle'); toggle('Crosshair','Centered aim-training marker',false,function(v) cross.Visible=v end)
+  section('Sheriff • training controls')
+  preview('Auto target murderer','Target selection for your own practice NPC')
+  preview('Grab gun and shoot','Server-authorized training integration')
+  preview('Auto shoot','Training dummy integration')
+  preview('Auto grab dropped gun','Dropped-tool detector integration')
+  preview('Wallbang','Line-of-sight testing preview')
+  section('Murderer • training controls')
+  preview('Knife kill all','Practice targets only; no player attacks')
+  preview('Knife reach','Visualize intended range in your own game')
+  slider('Knife reach distance','Preview distance in studs',1,40,12)
+  preview('Auto equip knife','Equipment-state integration')
+  slider('Equip knife delay','Delay preview in tenths of a second',0,30,5)
+  preview('Silent throw','Practice projectile integration')
+  slider('Knife hitbox size','Training dummy visualization size',1,30,5)
+  selector('Target selection','Preview target selector',{'None','Training dummy A','Training dummy B'})
+  previewAction('Target action','Practice dummy target action')
+  previewAction('Sheriff action','Practice role test action')
+  section('Silent aim • visual settings')
+  preview('Silent aim preview','Reticle display only')
+  slider('Aim FOV radius','Visual range size',10,250,90)
+  toggle('Crosshair','Centered aim-training marker',false,function(v) cross.Visible=v end)
   slider('Crosshair size','Adjust marker diameter',3,25,5,function(v) cross.Size=UDim2.fromOffset(v,v) end)
-  action('Reset practice reticle','Return marker to default size','Reset',function() state['Crosshair size']=5; cross.Size=UDim2.fromOffset(5,5); notify('Reticle reset; reopen tab to refresh slider') end)
-  section('Game integration'); note('Target detection and weapon mechanics require authorized game-server APIs.')
+  section('Fling • interface preview')
+  preview('Fling selected','Non-operational player action')
+  preview('Auto fling','Non-operational player action')
+  preview('Anti fling','Game-specific movement integration')
+  slider('Fling speed preview','Interface value only',1,100,25)
+  note('Combat actions need server-authorized game code. No attacks against live players are implemented.')
  elseif tab=='ESP' then
   section('Player highlights'); toggle('Player outlines','Visible local outlines (no wall visibility)',false,refreshESP)
   action('Refresh outlines','Update outlines for current players','Refresh',refreshESP)
@@ -190,9 +232,29 @@ local function render(tab)
   action('Copy coordinates','Show coordinates for map debugging','Show',function() local p=player.Character and player.Character:FindFirstChild('HumanoidRootPart'); notify(p and tostring(p.Position) or 'Character not available') end)
   section('Waypoints'); note('Server-authorized waypoint travel can be connected to your own game.')
  elseif tab=='Autofarm' then
-  section('Coin diagnostics'); local folder=workspace:FindFirstChild('Coins'); textrow('Coin container','Looks for workspace.Coins',folder and 'FOUND' or 'NOT FOUND')
-  action('Scan coin objects','Count children in the Coins folder','Scan',function() local f=workspace:FindFirstChild('Coins'); notify(f and ('Coin objects: '..#f:GetChildren()) or 'workspace.Coins not found') end)
-  section('Collection integration'); note('Automatic collection and rewards need your own server-side coin system.')
+  section('Coin system • diagnostics')
+  local folder=workspace:FindFirstChild('Coins')
+  textrow('Coin container','Checks workspace.Coins',folder and 'FOUND' or 'NOT FOUND')
+  action('Scan coin objects','Count coin objects in your experience','Scan',function()
+   local f=workspace:FindFirstChild('Coins'); notify(f and ('Coin objects: '..#f:GetChildren()) or 'workspace.Coins not found')
+  end)
+  section('Coin farm • configuration preview')
+  preview('Auto collect coins','Requires your own coin collection API')
+  preview('Float above coins','Movement integration preview')
+  preview('Avoid threats','Role and distance integration preview')
+  preview('Noclip mode','Movement integration preview')
+  preview('Coin hitbox preview','Coin detector visualization')
+  slider('Coin hitbox size','Visual preview in studs',1,30,6)
+  slider('Tween speed','Preview speed value',1,100,25)
+  slider('Collect distance','Preview distance in studs',1,50,10)
+  slider('Teleport delay','Preview delay in tenths of a second',0,50,10)
+  selector('Travel method','Configuration only',{'Tween','Instant','Path','None'})
+  previewAction('Test collection route','Requires server-authorized collection')
+  section('Survival farm • configuration preview')
+  preview('Survival mode','Round-manager integration')
+  preview('Avoid murderer','Requires server-provided role data')
+  preview('Auto restart route','Round-manager integration')
+  note('Collection, rewards and movement automation are not active in this client toolkit.')
  elseif tab=='Survival' then
   section('Round overview'); textrow('Character status','Current local player',player.Character and 'SPAWNED' or 'WAITING')
   action('Refresh status','Recheck character state','Refresh',function() render('Survival') end)
@@ -253,4 +315,4 @@ end)
 render('Home')
 root.BackgroundTransparency=1
 TweenService:Create(root,TweenInfo.new(.35,Enum.EasingStyle.Quad),{BackgroundTransparency=0}):Play()
-notify('Violet Hub v6 loaded • Drag title bar to move')
+notify('Violet Hub v9 loaded • Drag title bar to move')
